@@ -1,4 +1,4 @@
-import { GoogleGenAI, Chat, Part, InlineData } from '@google/genai';
+import { GoogleGenAI, Part, InlineData, Content } from '@google/genai';
 import { VercelRequest, VercelResponse } from '@vercel/node';
 
 // Define el tipo para la entrada de historial del cliente
@@ -27,19 +27,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
     // Mapea el historial del cliente al formato que espera la API
-    const historyForApi = history.map(entry => ({
+    const historyForApi: Content[] = history.map(entry => ({
       role: entry.speaker,
       parts: [{ text: entry.text }], // Simplificamos, el historial no re-envía imágenes
     }));
-
-    const chat: Chat = ai.chats.create({
-      model: 'gemini-flash-latest',
-      config: {
-        systemInstruction: systemInstruction,
-      },
-      history: historyForApi,
-    });
-
+    
+    // Prepara las partes del mensaje actual del usuario
     const userParts: Part[] = [];
     if (image) {
       userParts.push({ inlineData: image });
@@ -48,8 +41,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       userParts.push({ text: prompt });
     }
 
-    const stream = await chat.sendMessageStream({ parts: userParts });
+    // Combina el historial con el mensaje actual para la llamada sin estado
+    const contents: Content[] = [
+        ...historyForApi,
+        { role: 'user', parts: userParts }
+    ];
 
+    const stream = await ai.models.generateContentStream({
+        model: 'gemini-flash-latest',
+        contents: contents,
+        config: {
+            systemInstruction: systemInstruction,
+        }
+    });
+    
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     res.setHeader('Transfer-Encoding', 'chunked');
 
