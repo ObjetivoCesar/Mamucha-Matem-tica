@@ -1,65 +1,79 @@
-import { useState, useCallback, useMemo } from 'react';
-import { GoogleGenAI, Part } from '@google/genai';
+import { useState, useCallback } from 'react';
 import { fileToGenerativePart } from '../utils/audio';
 import { TranscriptEntry } from '../types';
 
-export const useGeminiChat = (apiKey: string | null, systemInstruction: string) => {
+export const useGeminiChat = (systemInstruction: string) => {
   const [transcripts, setTranscripts] = useState<TranscriptEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const ai = useMemo(() => 
-    apiKey ? new GoogleGenAI({ apiKey }) : null
-  , [apiKey]);
-
   const sendMessage = useCallback(async (prompt: string, file: File | null) => {
-    if (!ai) {
-        alert("API Key no configurada.");
-        return;
-    }
-    
     setIsLoading(true);
 
-    const userParts: Part[] = [];
-    let imageUrl: string | undefined = undefined;
+    const history = [...transcripts];
+    const newUserEntry: TranscriptEntry = { speaker: 'user', text: prompt };
     
+    let imagePart = null;
     if (file) {
-      imageUrl = URL.createObjectURL(file);
+      newUserEntry.imageUrl = URL.createObjectURL(file);
+      const base64Image = await fileToGenerativePart(file);
+      imagePart = base64Image.inlineData;
     }
-    setTranscripts(prev => [...prev, { speaker: 'user', text: prompt, imageUrl }]);
-    setTranscripts(prev => [...prev, { speaker: 'model', text: '', isPending: true }]);
+
+    const updatedTranscripts = [...transcripts, newUserEntry, { speaker: 'model', text: '', isPending: true }];
+    setTranscripts(updatedTranscripts);
 
     try {
-      if (file) {
-        const imagePart = await fileToGenerativePart(file);
-        userParts.push(imagePart);
-      }
-      if (prompt) {
-        userParts.push({ text: prompt });
-      }
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-flash-latest',
-        contents: { parts: userParts },
-        config: {
-          systemInstruction: systemInstruction,
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          history,
+          prompt,
+          image: imagePart,
+          systemInstruction
+        }),
       });
 
-      const modelResponseText = response.text;
+      if (!response.body) {
+        throw new Error('No response body');
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let modelResponseText = '';
+
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          break;
+        }
+        const chunk = decoder.decode(value);
+        modelResponseText += chunk;
+        setTranscripts(prev => {
+          const newTranscript = [...prev];
+          const lastEntry = newTranscript[newTranscript.length - 1];
+          if (lastEntry && lastEntry.isPending) {
+            lastEntry.text = modelResponseText;
+          }
+          return newTranscript;
+        });
+      }
       
       setTranscripts(prev => {
         const newTranscript = [...prev];
         const lastEntry = newTranscript[newTranscript.length - 1];
-        if(lastEntry && lastEntry.isPending) {
-            lastEntry.text = modelResponseText;
-            lastEntry.isPending = false;
+        if (lastEntry && lastEntry.isPending) {
+          lastEntry.isPending = false;
         }
         return newTranscript;
       });
 
     } catch (error) {
       console.error("Error sending message:", error);
-       setTranscripts(prev => {
+      setTranscripts(prev => {
         const newTranscript = [...prev];
         const lastEntry = newTranscript[newTranscript.length - 1];
         if(lastEntry && lastEntry.isPending) {
@@ -71,7 +85,7 @@ export const useGeminiChat = (apiKey: string | null, systemInstruction: string) 
     } finally {
       setIsLoading(false);
     }
-  }, [ai, systemInstruction]);
+  }, [transcripts, systemInstruction]);
 
   return {
     transcripts,

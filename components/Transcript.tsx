@@ -60,8 +60,8 @@ const Transcript: React.FC<TranscriptProps> = ({ entries }) => {
     <div className="flex-grow w-full max-w-4xl mx-auto p-4 space-y-6 overflow-y-auto">
         {entries.length === 0 && (
             <div className="text-center flex flex-col items-center justify-center h-full">
-                <div className="bg-purple-500 rounded-full w-24 h-24 flex items-center justify-center mb-6 text-5xl shadow-lg">
-                👵
+                <div className="bg-purple-500 rounded-full w-24 h-24 flex items-center justify-center mb-6 text-5xl font-bold shadow-lg">
+                M
                 </div>
                 <h1 className="text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500 mb-2">
                 Mamucha la Matemática
