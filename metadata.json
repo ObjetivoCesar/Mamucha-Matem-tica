@@ -1,0 +1,7 @@
+{
+  "name": "Mamucha la Matemática",
+  "description": "Una tutora de IA conversacional para ayudar a los estudiantes con sus deberes de matemáticas. Puedes escribir, hablar o subir una foto de tu problema.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
