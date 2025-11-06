@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import InputBar from './components/ControlButton';
 import Transcript from './components/Transcript';
 import { useGeminiChat } from './hooks/useGeminiLive';
@@ -19,12 +19,68 @@ Tus Reglas de Oro:
 5.  **Celebra el Proceso:** Elógialo cuando dé un paso correcto, incluso si es pequeño. "¡Muy bien pensado!", "¡Exacto, por ahí va la cosa!". Lo importante es el proceso de aprendizaje, no solo llegar al resultado.
 `;
 
+const ApiKeyManager: React.FC<{ onApiKeySet: (key: string) => void }> = ({ onApiKeySet }) => {
+    const [apiKeyInput, setApiKeyInput] = useState('');
+
+    const handleSaveKey = () => {
+        if (apiKeyInput.trim()) {
+            sessionStorage.setItem('gemini-api-key', apiKeyInput.trim());
+            onApiKeySet(apiKeyInput.trim());
+        }
+    };
+
+    return (
+        <div className="flex flex-col items-center justify-center h-screen w-screen font-sans p-4">
+            <div className="w-full max-w-md bg-gray-900/50 backdrop-blur-lg rounded-xl border border-white/10 shadow-lg p-8 text-center">
+                 <div className="bg-purple-500 rounded-full w-24 h-24 flex items-center justify-center mb-6 text-5xl shadow-lg mx-auto">
+                    👵
+                </div>
+                <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500 mb-4">
+                    Mamucha la Matemática
+                </h1>
+                <p className="text-gray-300 mb-6">
+                    Para comenzar, por favor ingresa tu clave API de Google Gemini.
+                </p>
+                <div className="flex flex-col gap-4">
+                     <input
+                        type="password"
+                        value={apiKeyInput}
+                        onChange={(e) => setApiKeyInput(e.target.value)}
+                        placeholder="Pega tu clave API aquí"
+                        className="w-full bg-gray-800/80 border border-white/10 rounded-lg px-4 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <button
+                        onClick={handleSaveKey}
+                        className="w-full bg-blue-600 text-white rounded-lg py-2 font-semibold hover:bg-blue-700 transition-colors"
+                    >
+                        Guardar y Empezar
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+
 const App: React.FC = () => {
+  const [apiKey, setApiKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    const storedApiKey = sessionStorage.getItem('gemini-api-key');
+    if (storedApiKey) {
+      setApiKey(storedApiKey);
+    }
+  }, []);
+
   const {
     transcripts,
     isLoading,
     sendMessage,
-  } = useGeminiChat(SYSTEM_INSTRUCTION);
+  } = useGeminiChat(apiKey, SYSTEM_INSTRUCTION);
+
+  if (!apiKey) {
+    return <ApiKeyManager onApiKeySet={setApiKey} />;
+  }
 
   return (
     <main className="flex flex-col h-screen w-screen font-sans p-2 sm:p-4">

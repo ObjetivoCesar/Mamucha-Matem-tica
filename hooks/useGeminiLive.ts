@@ -1,27 +1,32 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { GoogleGenAI, Part } from '@google/genai';
 import { fileToGenerativePart } from '../utils/audio';
 import { TranscriptEntry } from '../types';
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
-
-export const useGeminiChat = (systemInstruction: string) => {
+export const useGeminiChat = (apiKey: string | null, systemInstruction: string) => {
   const [transcripts, setTranscripts] = useState<TranscriptEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
+  const ai = useMemo(() => 
+    apiKey ? new GoogleGenAI({ apiKey }) : null
+  , [apiKey]);
+
   const sendMessage = useCallback(async (prompt: string, file: File | null) => {
+    if (!ai) {
+        alert("API Key no configurada.");
+        return;
+    }
+    
     setIsLoading(true);
 
     const userParts: Part[] = [];
     let imageUrl: string | undefined = undefined;
     
-    // Add user message to transcript immediately for better UX
     if (file) {
       imageUrl = URL.createObjectURL(file);
     }
     setTranscripts(prev => [...prev, { speaker: 'user', text: prompt, imageUrl }]);
     setTranscripts(prev => [...prev, { speaker: 'model', text: '', isPending: true }]);
-
 
     try {
       if (file) {
@@ -42,7 +47,6 @@ export const useGeminiChat = (systemInstruction: string) => {
 
       const modelResponseText = response.text;
       
-      // Update the pending message with the actual response
       setTranscripts(prev => {
         const newTranscript = [...prev];
         const lastEntry = newTranscript[newTranscript.length - 1];
@@ -55,7 +59,6 @@ export const useGeminiChat = (systemInstruction: string) => {
 
     } catch (error) {
       console.error("Error sending message:", error);
-      // Update the pending message with an error
        setTranscripts(prev => {
         const newTranscript = [...prev];
         const lastEntry = newTranscript[newTranscript.length - 1];
@@ -68,7 +71,7 @@ export const useGeminiChat = (systemInstruction: string) => {
     } finally {
       setIsLoading(false);
     }
-  }, [systemInstruction]);
+  }, [ai, systemInstruction]);
 
   return {
     transcripts,
