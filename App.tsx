@@ -67,7 +67,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const storedApiKey = sessionStorage.getItem('gemini-api-key');
-    if (storedApiKey) {
+    if (storedApiKey && storedApiKey.trim() !== '') {
       setApiKey(storedApiKey);
     }
   }, []);
